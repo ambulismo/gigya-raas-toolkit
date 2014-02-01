@@ -32,7 +32,7 @@ request({ url: url, form: params, method: 'POST' }, function(error, response, bo
 
   // Check for error code from Gigya
   if(json.errorCode !== 0) {
-    return console.error('Gigya rejected getScreenSets request:', json.errorCode, json.errorMessage);
+    return console.error('Gigya rejected getScreenSets request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
   }
 
   // Loop through returned screenSets and call setScreenSet for each
@@ -62,7 +62,7 @@ request({ url: url, form: params, method: 'POST' }, function(error, response, bo
 
       // Check for error code from Gigya
       if(json.errorCode !== 0) {
-        return console.error('Gigya rejected setScreenSets request:', json.errorCode, json.errorMessage);
+        return console.error('Gigya rejected setScreenSets request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
       }
 
       console.log('Screenset copied: ', screenset.screenSetID);

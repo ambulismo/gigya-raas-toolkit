@@ -31,7 +31,7 @@ request({ url: url, form: params, method: 'POST' }, function(error, response, bo
 
   // Check for error code from Gigya
   if(json.errorCode !== 0) {
-    return console.error('Gigya rejected getSchema request:', json.errorCode, json.errorMessage);
+    return console.error('Gigya rejected getSchema request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
   }
 
   // Get schema from response and format them to pass to Gigya
@@ -65,7 +65,7 @@ request({ url: url, form: params, method: 'POST' }, function(error, response, bo
     // Check for error code from Gigya
     console.log(json);
     if(json.errorCode !== 0) {
-      return console.error('Gigya rejected setSchema request:', json.errorCode, json.errorMessage);
+      return console.error('Gigya rejected setSchema request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
     }
 
     console.log(json);
