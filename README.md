@@ -6,12 +6,17 @@ The following commands are available:
 node export-policies
 node export-schema
 node export-screensets
+
+node import-policies
+node import-schema
+node import-screensets
+
 node copy-policies
 node copy-schema
 node copy-screensets
 ```
 
-Export commands take the following parameters:
+Export and import commands take the following parameters:
 ```
 --apiKey YOUR_KEY_HERE
 --secret YOUR_SECRET_HERE

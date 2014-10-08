@@ -1,61 +1,61 @@
 #!/usr/bin/env node
 var optimist = require('optimist'),
-    request = require('request'),
-    util = require('util'),
-    fs = require('fs');
+  defaults = require('./inc/defaults.js');
+  _ = require('underscore'),
+  Gigya = require('gigya'),
+  util = require('util'),
+  fs = require('fs');
 
 // Setup command-line arguments
 var argv = optimist
   .demand(['apiKey', 'secret'])
-  .default('filter', 'full')
-  .describe('filter', 'Specifies what parts of the schema to return')
   .default('filename', 'console')
   .describe('filename', 'Filename to save schema to')
+  .default(defaults.exportDefaults)
   .argv;
 
-// Fetch schema
-var url = 'https://accounts.gigya.com/accounts.getSchema',
-    params = {
-      APIKey: argv.apiKey,
-      secret: argv.secret,
-      filter: argv.filter,
-      format: 'json'
-    };
-request({ url: url, form: params, method: 'POST' }, function(error, response, body) {
-  // If request returned an error, it was because it couldn't get a response from Gigya
-  if(error) {
-    return console.error('Error reaching Gigya:', error);
+// Initialize Gigya
+var gigya = new Gigya(argv.apiKey, argv.secret, true);
+
+gigya.accounts.getSchema({
+}, function(err, response) {
+  if(err) {
+    return console.error('Error on getSchema', err);
   }
 
-  // Attempt to parse JSON
-  try {
-    var json = JSON.parse(body);
-  } catch(exception) {
-    return console.error('Error parsing response JSON:', body);
-  }
-
-  // Check for error code from Gigya
-  if(json.errorCode !== 0) {
-    return console.error('Gigya rejected request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
-  }
-
-  // Save to file or console output
   var schema = {
-    profileSchema: json.profileSchema,
-    dataSchema: json.dataSchema
+    profileSchema: response.profileSchema,
+    dataSchema: response.dataSchema
   };
+
+  // Profile schema has a bunch of things that are read-only
+  // We don't save these to the file because they never change
+  delete schema.profileSchema.unique;
+  delete schema.profileSchema.dynamicSchema;
+  _.each(schema.profileSchema.fields, function(field, key) {
+    delete field.arrayOp;
+    delete field.allowNull;
+    delete field.type;
+    delete field.encrypt;
+    delete field.format;
+  });
+
+  if(schema.dataSchema.unique && _.isArray(schema.dataSchema.unique) && schema.dataSchema.unique.length === 0) {
+    delete schema.dataSchema.unique;
+  }
 
   if(argv.filename === 'console') {
     // Print to console (deep inspect)
     console.log(util.inspect(schema, false, null));
   } else {
     // Save as JSON
-    fs.writeFile(argv.filename, JSON.stringify(schema, null, 4), function(error) {
+    var filename = ('' + argv.filename).replace(/\$type/gi, 'schema');
+    fs.writeFile(filename, JSON.stringify(schema, null, 4), function(error) {
       if(error) {
         return console.error('Error writing file:', error);
       }
 
-      console.log('Schema written to file:', argv.filename);
+      console.log('Schema written to file:', filename);
     });
   }
 });

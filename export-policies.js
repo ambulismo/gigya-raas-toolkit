@@ -1,68 +1,46 @@
 #!/usr/bin/env node
 var optimist = require('optimist'),
-  request = require('request'),
+  defaults = require('./inc/defaults.js');
+  _ = require('underscore'),
+  Gigya = require('gigya'),
   util = require('util'),
   fs = require('fs');
 
 // Setup command-line arguments
 var argv = optimist
   .demand(['apiKey', 'secret'])
-  .default('filter', 'full')
-  .describe('filter', 'Specifies what policies to include')
   .default('filename', 'console')
-  .describe('filename', 'Filename to save schema to')
+  .describe('filename', 'Filename to save policies to')
+  .default(defaults.exportDefaults)
   .argv;
 
-// Fetch schema
-var url = 'https://accounts.gigya.com/accounts.getPolicies',
-  params = {
-    APIKey: argv.apiKey,
-    secret: argv.secret,
-    filter: argv.filter,
-    format: 'json'
-  };
-request({ url: url, form: params, method: 'POST' }, function(error, response, body) {
-  // If request returned an error, it was because it couldn't get a response from Gigya
-  if(error) {
-    return console.error('Error reaching Gigya:', error);
+// Initialize Gigya
+var gigya = new Gigya(argv.apiKey, argv.secret, true);
+
+gigya.accounts.getPolicies({
+}, function(err, response) {
+  if(err) {
+    return console.error('Error on getPolicies', err);
   }
 
-  // Attempt to parse JSON
-  try {
-    var json = JSON.parse(body);
-  } catch(exception) {
-    return console.error('Error parsing response JSON:', body);
-  }
-
-  // Check for error code from Gigya
-  if(json.errorCode !== 0) {
-    return console.error('Gigya rejected request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
-  }
-
-  // Save to file or console output
-  var policies = {
-    registration: json.registration,
-    gigyaPlugins: json.gigyaPlugins,
-    accountOptions: json.accountOptions,
-    passwordComplexity: json.passwordComplexity,
-    emailVerification: json.emailVerification,
-    passwordReset: json.passwordReset,
-    profilePhoto: json.profilePhoto,
-    security: json.security,
-    twoFactorAuth: json.twoFactorAuth
-  };
+  var policies = response;
+  delete policies.callId;
+  delete policies.errorCode;
+  delete policies.statusCode;
+  delete policies.statusReason;
 
   if(argv.filename === 'console') {
     // Print to console (deep inspect)
     console.log(util.inspect(policies, false, null));
   } else {
     // Save as JSON
-    fs.writeFile(argv.filename, JSON.stringify(policies, null, 4), function(error) {
+    var filename = ('' + argv.filename).replace(/\$type/gi, 'policies');
+    fs.writeFile(filename, JSON.stringify(policies, null, 4), function(error) {
       if(error) {
         return console.error('Error writing file:', error);
       }
 
-      console.log('Policies written to file:', argv.filename);
+      console.log('Policies written to file:', filename);
     });
   }
 });

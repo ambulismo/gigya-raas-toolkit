@@ -1,68 +1,37 @@
 #!/usr/bin/env node
 var optimist = require('optimist'),
-  request = require('request'),
-  _ = require('underscore');
+  defaults = require('./inc/defaults.js');
+  _ = require('underscore'),
+  Gigya = require('gigya');
 
 // Setup command-line arguments
 var argv = optimist
   .demand(['fromApiKey', 'fromSecret', 'toApiKey', 'toSecret'])
   .describe('screenSetIDs', 'Comma separated list of the screen-sets to be copied')
+  .default(defaults.copyDefaults)
   .argv;
 
-// Fetch screenSets
-var url = 'https://accounts.gigya.com/accounts.getScreenSets',
-  params = {
-    APIKey: argv.fromApiKey,
-    secret: argv.fromSecret,
-    screenSetIDs: argv.screenSetIDs,
-    format: 'json'
-  };
-request({ url: url, form: params, method: 'POST' }, function(error, response, body) {
-  // If request returned an error, it was because it couldn't get a response from Gigya
-  if(error) {
-    return console.error('Error reaching Gigya:', error);
-  }
+// Initialize Gigya
+var sourceGigya = new Gigya(argv.fromApiKey, argv.fromSecret, true),
+    destinationGigya = new Gigya(argv.toApiKey, argv.toSecret, true);
 
-  // Attempt to parse JSON
-  try {
-    var json = JSON.parse(body);
-  } catch(exception) {
-    return console.error('Error parsing getScreenSets response JSON:', body);
-  }
-
-  // Check for error code from Gigya
-  if(json.errorCode !== 0) {
-    return console.error('Gigya rejected getScreenSets request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
+sourceGigya.accounts.getScreenSets({
+  screenSetIDs: argv.screenSetIDs
+}, function(err, response) {
+  if(err) {
+    return console.error('Error on getScreenSets', err);
   }
 
   // Loop through returned screenSets and call setScreenSet for each
-  _.each(json.screenSets, function(screenset) {
-    var url = 'https://accounts.gigya.com/accounts.setScreenSet',
-      params = {
-        APIKey: argv.toApiKey,
-        secret: argv.toSecret,
-        screenSetID: screenset.screenSetID,
-        html: screenset.html,
-        css: screenset.css,
-        format: 'json'
-      };
-
-    request({ url: url, form: params, method: 'POST' }, function(error, response, body) {
-      // If request returned an error, it was because it couldn't get a response from Gigya
-      if(error) {
-        return console.error('Error reaching Gigya:', error);
-      }
-
-      // Attempt to parse JSON
-      try {
-        var json = JSON.parse(body);
-      } catch(exception) {
-        return console.error('Error parsing setScreenSet response JSON:', body);
-      }
-
-      // Check for error code from Gigya
-      if(json.errorCode !== 0) {
-        return console.error('Gigya rejected setScreenSets request:', json.errorCode, json.errorDetails ? json.errorDetails : json.errorMessage);
+  console.log('Copying ' + _.size(response.screenSets) + ' screensets...');
+  _.each(response.screenSets, function(screenset) {
+    destinationGigya.accounts.setScreenSet({
+      screenSetID: screenset.screenSetID,
+      html: screenset.html,
+      css: screenset.css
+    }, function(err, response) {
+      if(err) {
+        return console.error('Error on setScreenSet', err);
       }
 
       console.log('Screenset copied: ', screenset.screenSetID);
